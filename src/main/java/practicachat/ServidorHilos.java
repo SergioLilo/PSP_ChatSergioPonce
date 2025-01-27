@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,9 +29,7 @@ public class ServidorHilos {
 
 	public static void main(String[] args) {
 		synchronized (availableColors) {
-			for (String color : COLORS) {
-				availableColors.add(color);
-			}
+            Collections.addAll(availableColors, COLORS);
 		}
 
 		try (ServerSocket serverSocket = new ServerSocket(PORT)) {
