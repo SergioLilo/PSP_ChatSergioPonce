@@ -11,15 +11,15 @@ public class ClientStart {
 
 	public static void main(String[] args) {
 		try (Socket socket = new Socket("localhost", 5555);
-			 BufferedReader lector = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			 PrintWriter escritor = new PrintWriter(socket.getOutputStream(), true);
+			 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			 PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 			 Scanner scanner = new Scanner(System.in)) {
 
 			Thread receptor = new Thread(() -> {
 				try {
-					String mensaje;
-					while ((mensaje = lector.readLine()) != null) {
-							System.out.println(mensaje);
+					String message;
+					while ((message = reader.readLine()) != null) {
+							System.out.println(message);
 
 					}
 				} catch (IOException e) {
@@ -27,10 +27,10 @@ public class ClientStart {
 				}
 			});
 			receptor.start();
-			String entrada="";
-			while (!entrada.equalsIgnoreCase("/salir")) {
-				 entrada = scanner.nextLine();
-				escritor.println(entrada);
+			String entry="";
+			while (!entry.equalsIgnoreCase("/salir")) {
+				 entry = scanner.nextLine();
+				writer.println(entry);
 			}
 
 		} catch (IOException e) {
