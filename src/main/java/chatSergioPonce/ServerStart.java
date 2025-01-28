@@ -1,4 +1,4 @@
-package practicachat;
+package chatSergioPonce;
 
 import java.io.IOException;
 import java.net.ServerSocket;

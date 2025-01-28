@@ -1,4 +1,4 @@
-package practicachat;
+package chatSergioPonce;
 
 
 public class Player {

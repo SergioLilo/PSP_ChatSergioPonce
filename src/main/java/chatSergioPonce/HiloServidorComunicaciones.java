@@ -1,4 +1,4 @@
-package practicachat;
+package chatSergioPonce;
 
 import java.io.*;
 import java.net.Socket;
@@ -9,24 +9,24 @@ public class HiloServidorComunicaciones extends Thread {
 
 	public static final String colorChanger = "\u001B[0m";
 	private Socket clienteSocket;
-	private ConcurrentHashMap<String, Player> jugadores;
-	private List<HiloServidorComunicaciones> hilos;
+	private ConcurrentHashMap<String, Player> players;
+	private List<HiloServidorComunicaciones> threads;
 	private String username;
 	private String assignedColor;
 	private PrintWriter writer;
 
 	// Lista de palabras prohibidas cargadas desde el archivo
-	private static final List<String> palabrasProhibidas = new ArrayList<>();
+	private static final List<String> censoredWords = new ArrayList<>();
 
 	static {
-		cargarPalabrasProhibidas();
+		loadCensoredWords();
 	}
 
 	public HiloServidorComunicaciones(Socket clienteSocket, ConcurrentHashMap<String, Player> players,
 									  List<HiloServidorComunicaciones> hilos) {
 		this.clienteSocket = clienteSocket;
-		this.jugadores = players;
-		this.hilos = hilos;
+		this.players = players;
+		this.threads = hilos;
 	}
 
 	@Override
@@ -38,7 +38,7 @@ public class HiloServidorComunicaciones extends Thread {
 
 			// Asignar color
 			assignedColor = ServerStart.obtainColor();
-			jugadores.put(username, new Player(username, assignedColor));
+			players.put(username, new Player(username, assignedColor));
 			ServerStart.sendToAll("[SERVIDOR]: " + assignedColor + username + " se ha unido al chat." + colorChanger);
 
 			String mensaje;
@@ -46,7 +46,7 @@ public class HiloServidorComunicaciones extends Thread {
 				if (mensaje.startsWith("/")) {
 					commands(mensaje);
 				} else {
-					String mensajeCensurado = censurarMensaje(mensaje);
+					String mensajeCensurado = censorMessage(mensaje);
 					writer.println(assignedColor + "[" + username + "]: " + mensajeCensurado + colorChanger);
 					ServerStart.sendToAllSpaces("\t\t\t\t\t"+assignedColor + "[" + username + "]: " + mensajeCensurado + colorChanger,this);
 				}
@@ -54,7 +54,7 @@ public class HiloServidorComunicaciones extends Thread {
 		} catch (IOException e) {
 			System.out.println("");
 		} finally {
-			jugadores.remove(username);
+			players.remove(username);
 			ServerStart.removeThreads(this);
 			ServerStart.sendToAll("[SERVIDOR]: " + assignedColor + username + " ha abandonado el chat." + colorChanger);
 
@@ -94,13 +94,13 @@ public class HiloServidorComunicaciones extends Thread {
 	private void attack(String objetivo) {
 		boolean userFound=true;
 		boolean canAttack=true;
-		if (objetivo == null || !jugadores.containsKey(objetivo)) {
+		if (objetivo == null || !players.containsKey(objetivo)) {
 			sendMessage("[SERVIDOR]: Usuario no encontrado.");
 			userFound=false;
 		}
 		if (userFound){
-		Player attacker = jugadores.get(username);
-		Player attacked = jugadores.get(objetivo);
+		Player attacker = players.get(username);
+		Player attacked = players.get(objetivo);
 
 		if (attacker.getMoney() < 5 || attacked.getPv() <= 0) {
 			ServerStart.sendToAll("[SERVIDOR]: " + username + " atacó a " + objetivo + " pero no surtió efecto.");
@@ -117,14 +117,14 @@ public class HiloServidorComunicaciones extends Thread {
 
 	private void showInfoAll() {
 		String resume="ESTADO DE JUGADORES\n";
-		for (Player jugador : jugadores.values()) {
+		for (Player jugador : players.values()) {
 			resume=resume+jugador+"\n";
 		}
 		sendMessage(resume);
 	}
 
 	private void showInfoPlayer() {
-		Player player = jugadores.get(username);
+		Player player = players.get(username);
 		String message = " Tus datos \n" +
 				"-PV: " + player.getPv() + "\n" +
 				"-Dinero: " + player.getMoney();
@@ -136,7 +136,7 @@ public class HiloServidorComunicaciones extends Thread {
 		boolean correct=true;
 		boolean canDonate=true;
 		if (partes.length < 3) {
-			sendMessage("[SERVIDOR]: Uso incorrecto. Usa /dar <cantidad> <jugador>.");
+			sendMessage("[SERVIDOR]: incorrecto.El comando es: /dar <cantidad> <jugador>.");
 			correct=false;
 		}
 
@@ -145,13 +145,13 @@ public class HiloServidorComunicaciones extends Thread {
 				int cantidad = Integer.parseInt(partes[1]);
 				String receptor = partes[2];
 
-				if (!jugadores.containsKey(receptor)) {
+				if (!players.containsKey(receptor)) {
 					sendMessage("[SERVIDOR]: Usuario no encontrado.");
 					canDonate=false;
 				}
 
-				Player donante = jugadores.get(username);
-				Player destinatario = jugadores.get(receptor);
+				Player donante = players.get(username);
+				Player destinatario = players.get(receptor);
 
 				if (donante.getMoney() < cantidad) {
 					sendMessage("[SERVIDOR]: Saldo insuficiente para la donación.");
@@ -162,7 +162,7 @@ public class HiloServidorComunicaciones extends Thread {
 					donante.reducirDinero(cantidad);
 					destinatario.incrementarDinero(cantidad);
 
-					for (HiloServidorComunicaciones hilo : hilos) {
+					for (HiloServidorComunicaciones hilo : threads) {
 						if (hilo.username.equals(receptor)) {
 							hilo.sendMessage("[SERVIDOR]: El jugador " + username + " te ha donado " + cantidad + " monedas.");
 						}
@@ -182,23 +182,23 @@ public class HiloServidorComunicaciones extends Thread {
 
 	}
 
-	private static void cargarPalabrasProhibidas() {
-		try (BufferedReader lector = new BufferedReader(new FileReader("censored.txt"))) {
+	private static void loadCensoredWords() {
+		try (BufferedReader lector = new BufferedReader(new FileReader("src/main/java/chatSergioPonce/censored"))) {
 			String linea;
 			while ((linea = lector.readLine()) != null) {
-				palabrasProhibidas.add(linea.trim().toLowerCase());
+				censoredWords.add(linea.trim().toLowerCase());
 			}
 		} catch (IOException e) {
 		e.printStackTrace();
 		}
 	}
 
-	private String censurarMensaje(String mensaje) {
-		String mensajeCensurado = mensaje;
-		for (String palabra : palabrasProhibidas) {
-			mensajeCensurado = mensajeCensurado.replaceAll("(?i)" + palabra, "*".repeat(palabra.length()));
+	private String censorMessage(String message) {
+		String censoredMessage = message;
+		for (String word : censoredWords) {
+			censoredMessage = censoredMessage.replaceAll(word, "*".repeat(word.length()));
 		}
-		return mensajeCensurado;
+		return censoredMessage;
 	}
 }
 
