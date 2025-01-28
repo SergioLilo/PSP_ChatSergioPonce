@@ -10,8 +10,8 @@ public class Player {
 
     public Player(String nombre, String color) {
         this.name = nombre;
-        this.pv = ServidorHilos.PV_INITIAL; // PV inicial
-        this.money = ServidorHilos.MONEY_INITIAL; // Dinero inicial
+        this.pv = ServerStart.PV_INITIAL; // PV inicial
+        this.money = ServerStart.MONEY_INITIAL; // Dinero inicial
         this.color = color;
     }
 

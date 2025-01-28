@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ServidorHilos {
+public class ServerStart {
 
 	private static final int PORT = 5555;
 	public static final int PV_INITIAL = 50;
@@ -49,7 +49,7 @@ public class ServidorHilos {
 		}
 	}
 
-	public static synchronized void enviarATodos(String mensaje) {
+	public static synchronized void sendToAll(String mensaje) {
 		synchronized (threads) {
 			if (mensaje.contains("[SERVIDOR]")){
 				System.out.println(mensaje);
@@ -59,7 +59,7 @@ public class ServidorHilos {
 			}
 		}
 	}
-	public static synchronized void enviarATodosEspacios(String mensaje, HiloServidorComunicaciones h) {
+	public static synchronized void sendToAllSpaces(String mensaje, HiloServidorComunicaciones h) {
 		synchronized (threads) {
 			for (HiloServidorComunicaciones hilo : threads) {
 				if (!hilo.equals(h)){
@@ -68,20 +68,20 @@ public class ServidorHilos {
 		}
 	}
 
-	public static synchronized void eliminarHilo(HiloServidorComunicaciones hilo) {
+	public static synchronized void removeThreads(HiloServidorComunicaciones hilo) {
 		synchronized (threads) {
 			threads.remove(hilo);
 		}
 	}
 
-	public synchronized static String obtenerColor() {
+	public synchronized static String obtainColor() {
 		if (availableColors.isEmpty()) {
 			return "\u001B[37m";// Blanco
 		}
 		return availableColors.remove(0);
 	}
 
-	public synchronized static void devolverColor(String color) {
+	public synchronized static void returnColor(String color) {
 		availableColors.add(0, color);
 	}
 

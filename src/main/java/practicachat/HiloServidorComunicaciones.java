@@ -22,10 +22,10 @@ public class HiloServidorComunicaciones extends Thread {
 		cargarPalabrasProhibidas();
 	}
 
-	public HiloServidorComunicaciones(Socket clienteSocket, ConcurrentHashMap<String, Player> jugadores,
+	public HiloServidorComunicaciones(Socket clienteSocket, ConcurrentHashMap<String, Player> players,
 									  List<HiloServidorComunicaciones> hilos) {
 		this.clienteSocket = clienteSocket;
-		this.jugadores = jugadores;
+		this.jugadores = players;
 		this.hilos = hilos;
 	}
 
@@ -37,9 +37,9 @@ public class HiloServidorComunicaciones extends Thread {
 			username = lector.readLine();
 
 			// Asignar color
-			assignedColor = ServidorHilos.obtenerColor();
+			assignedColor = ServerStart.obtainColor();
 			jugadores.put(username, new Player(username, assignedColor));
-			ServidorHilos.enviarATodos("[SERVIDOR]: " + assignedColor + username + " se ha unido al chat." + colorChanger);
+			ServerStart.sendToAll("[SERVIDOR]: " + assignedColor + username + " se ha unido al chat." + colorChanger);
 
 			String mensaje;
 			while ((mensaje = lector.readLine()) != null) {
@@ -48,18 +48,18 @@ public class HiloServidorComunicaciones extends Thread {
 				} else {
 					String mensajeCensurado = censurarMensaje(mensaje);
 					writer.println(assignedColor + "[" + username + "]: " + mensajeCensurado + colorChanger);
-					ServidorHilos.enviarATodosEspacios("\t\t\t\t\t"+assignedColor + "[" + username + "]: " + mensajeCensurado + colorChanger,this);
+					ServerStart.sendToAllSpaces("\t\t\t\t\t"+assignedColor + "[" + username + "]: " + mensajeCensurado + colorChanger,this);
 				}
 			}
 		} catch (IOException e) {
 			System.out.println("");
 		} finally {
 			jugadores.remove(username);
-			ServidorHilos.eliminarHilo(this);
-			ServidorHilos.enviarATodos("[SERVIDOR]: " + assignedColor + username + " ha abandonado el chat." + colorChanger);
+			ServerStart.removeThreads(this);
+			ServerStart.sendToAll("[SERVIDOR]: " + assignedColor + username + " ha abandonado el chat." + colorChanger);
 
 			// Liberar color
-			ServidorHilos.devolverColor(assignedColor);
+			ServerStart.returnColor(assignedColor);
 			try {
 				clienteSocket.close();
 			} catch (IOException e) {
@@ -72,16 +72,16 @@ public class HiloServidorComunicaciones extends Thread {
 		String[] command = message.split(" ", 3);
 		switch (command[0]) {
 			case "/atacar":
-				manejarAtaque(command[1]);
+				attack(command[1]);
 				break;
 			case "/resumen":
-				mostrarResumen();
+				showInfoAll();
 				break;
 			case "/mio":
-				mostrarDatosPropios();
+				showInfoPlayer();
 				break;
 			case "/dar":
-				manejarDonacion(command);
+				donate(command);
 				break;
 			case "/salir":
 				clienteSocket.close();
@@ -91,7 +91,7 @@ public class HiloServidorComunicaciones extends Thread {
 		}
 	}
 
-	private void manejarAtaque(String objetivo) {
+	private void attack(String objetivo) {
 		boolean userFound=true;
 		boolean canAttack=true;
 		if (objetivo == null || !jugadores.containsKey(objetivo)) {
@@ -103,19 +103,19 @@ public class HiloServidorComunicaciones extends Thread {
 		Player attacked = jugadores.get(objetivo);
 
 		if (attacker.getMoney() < 5 || attacked.getPv() <= 0) {
-			ServidorHilos.enviarATodos("[SERVIDOR]: " + username + " atacó a " + objetivo + " pero no surtió efecto.");
+			ServerStart.sendToAll("[SERVIDOR]: " + username + " atacó a " + objetivo + " pero no surtió efecto.");
 			canAttack=false;
 		}
 		if (canAttack){
 		attacker.reducirDinero(5);
 		attacked.reducirPv(10);
 
-		ServidorHilos.enviarATodos("[SERVIDOR]: " + username + " atacó a " + objetivo + " (-10 PV).");
+		ServerStart.sendToAll("[SERVIDOR]: " + username + " atacó a " + objetivo + " (-10 PV).");
 			}
 		}
 	}
 
-	private void mostrarResumen() {
+	private void showInfoAll() {
 		String resume="ESTADO DE JUGADORES\n";
 		for (Player jugador : jugadores.values()) {
 			resume=resume+jugador+"\n";
@@ -123,7 +123,7 @@ public class HiloServidorComunicaciones extends Thread {
 		sendMessage(resume);
 	}
 
-	private void mostrarDatosPropios() {
+	private void showInfoPlayer() {
 		Player player = jugadores.get(username);
 		String message = " Tus datos \n" +
 				"-PV: " + player.getPv() + "\n" +
@@ -131,37 +131,42 @@ public class HiloServidorComunicaciones extends Thread {
 		sendMessage(message);
 	}
 
-	private void manejarDonacion(String[] partes) {
+	private void donate(String[] partes) {
+
+		boolean correct=true;
+		boolean canDonate=true;
 		if (partes.length < 3) {
 			sendMessage("[SERVIDOR]: Uso incorrecto. Usa /dar <cantidad> <jugador>.");
-			return;
+			correct=false;
 		}
 
 		try {
-			int cantidad = Integer.parseInt(partes[1]);
-			String receptor = partes[2];
+			if (correct) {
+				int cantidad = Integer.parseInt(partes[1]);
+				String receptor = partes[2];
 
-			if (!jugadores.containsKey(receptor)) {
-				sendMessage("[SERVIDOR]: Usuario no encontrado.");
-				return;
-			}
+				if (!jugadores.containsKey(receptor)) {
+					sendMessage("[SERVIDOR]: Usuario no encontrado.");
+					canDonate=false;
+				}
 
-			Player donante = jugadores.get(username);
-			Player destinatario = jugadores.get(receptor);
+				Player donante = jugadores.get(username);
+				Player destinatario = jugadores.get(receptor);
 
-			if (donante.getMoney() < cantidad) {
-				sendMessage("[SERVIDOR]: Saldo insuficiente para la donación.");
-				return;
-			}
+				if (donante.getMoney() < cantidad) {
+					sendMessage("[SERVIDOR]: Saldo insuficiente para la donación.");
+					canDonate=false;
+				}
 
-			donante.reducirDinero(cantidad);
-			destinatario.incrementarDinero(cantidad);
+				if (canDonate) {
+					donante.reducirDinero(cantidad);
+					destinatario.incrementarDinero(cantidad);
 
-			// Notificar al destinatario
-			for (HiloServidorComunicaciones hilo : hilos) {
-				if (hilo.username.equals(receptor)) {
-					hilo.sendMessage("[SERVIDOR]: El jugador " + username + " te ha donado " + cantidad + " monedas.");
-					break;
+					for (HiloServidorComunicaciones hilo : hilos) {
+						if (hilo.username.equals(receptor)) {
+							hilo.sendMessage("[SERVIDOR]: El jugador " + username + " te ha donado " + cantidad + " monedas.");
+						}
+					}
 				}
 			}
 
